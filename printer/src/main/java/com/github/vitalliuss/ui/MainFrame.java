@@ -17,15 +17,23 @@ import javax.swing.border.EmptyBorder;
 
 import org.apache.log4j.Logger;
 
+import com.github.vitalliuss.accounting.PaperFormat;
+import com.github.vitalliuss.accounting.Price;
+import com.github.vitalliuss.accounting.PriceCalculator;
 import com.github.vitalliuss.io.FileChooser;
+
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 
 public class MainFrame extends JFrame
 {
 	private static final Logger logger = Logger.getLogger(MainFrame.class);
 	private static File file;
 
-	private boolean isPreviewModeOn = false;
 	private int currentPageNumber = -1;
+	private int totalPagesInPDFFile = 0;
+	private int pagesToPrintCount = 0;
+	private int totalPrice = 0;
 
 	public static File getFile()
 	{
@@ -43,7 +51,6 @@ public class MainFrame extends JFrame
 	private final JRadioButton rdbtnA3 = new JRadioButton("A3");
 	private final JRadioButton rdbtnA4 = new JRadioButton("A4");
 	private final JButton btnPrint = new JButton("Print!");
-	private final JButton btnPreview = new JButton("Preview");
 	private final JLabel lblSelectFormat = new JLabel("Select format");
 	private final static JLabel picture1 = new JLabel("");
 	private final static JLabel picture2 = new JLabel("");
@@ -55,11 +62,13 @@ public class MainFrame extends JFrame
 	private final JComboBox comboBoxEndPage = new JComboBox();
 	private final JLabel lblTotalHint = new JLabel("Total:");
 	private final JLabel labelTotalAmount = new JLabel("");
-	private final JButton btnCalculatePrice = new JButton("Calculate Price");
 	private final JLabel lblInsertedHint = new JLabel("Inserted:");
 	private final JLabel labelInsertedAmount = new JLabel("");
 	private final JLabel lblLeftHint = new JLabel("Left:");
 	private final JLabel labelLeftAmount = new JLabel("");
+	private final JLabel lblFileName = new JLabel("");
+	private final JLabel lblPagesSelectedHint = new JLabel("Pages selected:");
+	private final JLabel lblPagesSelected = new JLabel("");
 
 	/**
 	 * Launch the application.
@@ -107,60 +116,49 @@ public class MainFrame extends JFrame
 			public void mouseClicked(MouseEvent e)
 			{
 				FileChooser fc = new FileChooser();
-				setFile(fc.openFile(btnBrowseFiles));
+				File file = fc.openFile(btnBrowseFiles);
+				String filePath = file.getAbsolutePath();
+				totalPagesInPDFFile = PDFDocument.getPDFDocumentPagesCount(file);
+				lblFileName.setText(filePath);
+				previewLoadedFile(file);
+				initPrintRangeComboBoxes(totalPagesInPDFFile);
+				calculatePagesToPrint(totalPagesInPDFFile);
+				
 			}
 		});
 		contentPane.setLayout(null);
 
 		contentPane.add(btnBrowseFiles);
-		lblSelectFormat.setBounds(10, 260, 112, 14);
+		lblSelectFormat.setBounds(10, 323, 112, 14);
 
 		contentPane.add(lblSelectFormat);
-		rdbtnA4.setBounds(10, 285, 57, 23);
-
-		contentPane.add(rdbtnA4);
-		btnPreview.setBounds(10, 99, 112, 23);
-		btnPreview.addMouseListener(new MouseAdapter()
-		{
-			@Override
-			public void mouseClicked(MouseEvent e)
-			{
-				if (getFile() != null)
-				{
-					try
-					{
-						isPreviewModeOn = true;
-						PDFViewer pdfViewer = new PDFViewer(getFile());
-
-						MainFrame.picture1.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(1)));
-						MainFrame.picture2.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(2)));
-						currentPageNumber = 1;
-
-						setVisible(true);
-					}
-					catch (IOException e1)
-					{
-						logger.error("Exception while previewing file: " + e1.getMessage());
-					}
-				}
-				else
-				{
-					logger.error("Please select file first!");
-				}
+		rdbtnA4.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				rdbtnA3.setSelected(false);
+				totalPrice = PriceCalculator.calculatePrice(pagesToPrintCount, PaperFormat.A4);
+				setPriceLabelsValues(totalPrice);
 			}
 		});
-		rdbtnA3.setBounds(69, 285, 53, 23);
+		rdbtnA4.setBounds(10, 348, 57, 23);
+
+		contentPane.add(rdbtnA4);
+		rdbtnA3.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				rdbtnA4.setSelected(false);
+				totalPrice = PriceCalculator.calculatePrice(pagesToPrintCount, PaperFormat.A3);
+				setPriceLabelsValues(totalPrice);
+			}
+		});
+		rdbtnA3.setBounds(69, 348, 53, 23);
 
 		contentPane.add(rdbtnA3);
-
-		contentPane.add(btnPreview);
-		btnPrint.setBounds(10, 484, 112, 23);
+		btnPrint.setBounds(10, 547, 112, 23);
 
 		contentPane.add(btnPrint);
-		picture1.setBounds(146, 11, 540, 923);
+		picture1.setBounds(146, 58, 540, 876);
 
 		contentPane.add(picture1);
-		picture2.setBounds(714, 11, 540, 923);
+		picture2.setBounds(714, 58, 540, 876);
 
 		contentPane.add(picture2);
 		buttonPreviousPage.addMouseListener(new MouseAdapter()
@@ -171,7 +169,7 @@ public class MainFrame extends JFrame
 				try
 				{
 					currentPageNumber--;
-					PDFViewer pdfViewer = new PDFViewer(getFile());
+					PDFDocument pdfViewer = new PDFDocument(getFile());
 					MainFrame.picture1.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(currentPageNumber)));
 					MainFrame.picture2.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(currentPageNumber + 1)));
 					logger.info("Prevoius page is opened");
@@ -194,7 +192,7 @@ public class MainFrame extends JFrame
 				try
 				{
 					currentPageNumber++;
-					PDFViewer pdfViewer = new PDFViewer(getFile());
+					PDFDocument pdfViewer = new PDFDocument(getFile());
 					MainFrame.picture1.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(currentPageNumber)));
 					MainFrame.picture2.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(currentPageNumber + 1)));
 					logger.info("Next page is opened");
@@ -208,13 +206,17 @@ public class MainFrame extends JFrame
 		buttonNextPage.setBounds(724, 945, 89, 23);
 
 		contentPane.add(buttonNextPage);
+		
 		comboBoxStartPage.setToolTipText("Start page");
 		comboBoxStartPage.setBounds(10, 158, 112, 20);
-		comboBoxStartPage.addItem("First page");
-		comboBoxStartPage.addItem("1");
-		comboBoxStartPage.addItem("2");
-
 		contentPane.add(comboBoxStartPage);
+		comboBoxStartPage.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				calculatePagesToPrint(totalPagesInPDFFile);
+			}
+		});
+
+		
 		lblPrintFromPage.setBounds(10, 133, 112, 14);
 
 		contentPane.add(lblPrintFromPage);
@@ -223,31 +225,90 @@ public class MainFrame extends JFrame
 		contentPane.add(lblPrintToPage);
 		comboBoxEndPage.setToolTipText("Last page");
 		comboBoxEndPage.setBounds(10, 222, 112, 20);
-		comboBoxEndPage.addItem("Last page");
-		comboBoxEndPage.addItem("1");
-		comboBoxEndPage.addItem("2");
-
 		contentPane.add(comboBoxEndPage);
-		lblTotalHint.setBounds(10, 379, 46, 14);
+		comboBoxEndPage.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				calculatePagesToPrint(totalPagesInPDFFile);
+			}
+		});
+
+		
+		lblTotalHint.setBounds(10, 442, 46, 14);
 
 		contentPane.add(lblTotalHint);
-		labelTotalAmount.setBounds(76, 379, 46, 14);
+		labelTotalAmount.setBounds(76, 442, 46, 14);
 
 		contentPane.add(labelTotalAmount);
-		btnCalculatePrice.setBounds(10, 334, 112, 23);
-
-		contentPane.add(btnCalculatePrice);
-		lblInsertedHint.setBounds(10, 404, 46, 14);
+		lblInsertedHint.setBounds(10, 467, 46, 14);
 
 		contentPane.add(lblInsertedHint);
-		labelInsertedAmount.setBounds(76, 404, 46, 14);
+		labelInsertedAmount.setBounds(76, 467, 46, 14);
 
 		contentPane.add(labelInsertedAmount);
-		lblLeftHint.setBounds(10, 429, 46, 14);
+		lblLeftHint.setBounds(10, 492, 46, 14);
 
 		contentPane.add(lblLeftHint);
-		labelLeftAmount.setBounds(76, 429, 46, 14);
+		labelLeftAmount.setBounds(76, 492, 46, 14);
 
 		contentPane.add(labelLeftAmount);
+		lblFileName.setBounds(146, 15, 339, 14);
+		
+		contentPane.add(lblFileName);
+		lblPagesSelectedHint.setBounds(10, 253, 112, 14);
+		
+		contentPane.add(lblPagesSelectedHint);
+		lblPagesSelected.setBounds(10, 275, 46, 14);
+		
+		contentPane.add(lblPagesSelected);
 	}
+	
+	protected void setPriceLabelsValues(int totalPrice2) {
+		labelTotalAmount.setText(String.valueOf(totalPrice));
+	}
+
+	protected void calculatePagesToPrint(int pages) {
+        String comboBoxStartPageText = (String)comboBoxStartPage.getSelectedItem();
+        String comboBoxEndPageText = (String)comboBoxEndPage.getSelectedItem();
+        int firstPageNumber = ComboBoxFiller.getComboBoxIntegerValue(comboBoxStartPageText, pages);
+		int lastPageNumber = ComboBoxFiller.getComboBoxIntegerValue(comboBoxEndPageText, pages);
+		int difference = 0;
+		if (firstPageNumber <= lastPageNumber)
+		{
+			difference = lastPageNumber - firstPageNumber + 1;
+		}
+		else
+		{
+			difference = firstPageNumber - lastPageNumber + 1;
+		}
+		
+		pagesToPrintCount = difference;
+		lblPagesSelected.setText(String.valueOf(difference));
+        
+		
+	}
+
+	protected void initPrintRangeComboBoxes(int pages) {
+		logger.info(String.valueOf(pages));
+		ComboBoxFiller.initComboBox(comboBoxStartPage, "First page", pages);
+		ComboBoxFiller.initComboBox(comboBoxEndPage, "Last page", pages);
+	}
+
+	private void previewLoadedFile(File file)
+	{
+		try
+		{
+			PDFDocument pdfViewer = new PDFDocument(file);
+
+			MainFrame.picture1.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(1)));
+			MainFrame.picture2.setIcon(new ImageIcon(pdfViewer.getPDFPageImage(2)));
+			currentPageNumber = 1;
+
+			setVisible(true);
+		}
+		catch (IOException e1)
+		{
+			logger.error("Exception while previewing file: " + e1.getMessage());
+		}
+	}
+	
 }

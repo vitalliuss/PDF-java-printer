@@ -12,9 +12,9 @@ import org.apache.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.util.PDFImageWriter;
 
-public class PDFViewer
+public class PDFDocument
 {
-	private static final Logger logger = Logger.getLogger(PDFViewer.class);
+	private static final Logger logger = Logger.getLogger(PDFDocument.class);
 	private final File pdfFile;
 
 	private final int PREVIEW_WIDTH = 560;
@@ -22,7 +22,7 @@ public class PDFViewer
 
 	private final double ASPECT_RATIO = Math.sqrt(2);
 
-	public PDFViewer(File pdfFile)
+	public PDFDocument(File pdfFile)
 	{
 		this.pdfFile = pdfFile;
 	}
@@ -83,6 +83,19 @@ public class PDFViewer
 	{
 		Image dest = src.getScaledInstance(rect.width, rect.height, Image.SCALE_SMOOTH);
 		return dest;
+	}
+	
+	public static int getPDFDocumentPagesCount(File pdfFile)
+	{
+		int count = 0;
+		try {
+			PDDocument pdfDocument = PDDocument.load(pdfFile);
+			count = pdfDocument.getNumberOfPages();
+		} catch (IOException e) {
+			logger.error("Can't read PDF document: " + e.getMessage());
+		}
+		return count;
+		
 	}
 
 }
