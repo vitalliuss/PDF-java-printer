@@ -5,12 +5,11 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-
-import javax.imageio.ImageIO;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.util.PDFImageWriter;
+import org.apache.pdfbox.pdmodel.PDPage;
 
 public class PDFDocument
 {
@@ -27,56 +26,16 @@ public class PDFDocument
 		this.pdfFile = pdfFile;
 	}
 
-	public ImagePanel previewFile(int startPage, int endPage, String outputName) throws IOException
-	{
-		logger.info("Opening file in a preview pane: '" + pdfFile.getName() + "'");
-		PDDocument pdfDocument = PDDocument.load(pdfFile);
-		logger.info("Found PDF with pages count: " + pdfDocument.getNumberOfPages());
-
-		PDFImageWriter imageWriter = new PDFImageWriter();
-		String imageFormat = "jpg";
-		String password = "";
-		int imageType = BufferedImage.TYPE_INT_RGB;
-		int resolution = 96;
-		boolean result =
-				imageWriter.writeImage(pdfDocument, imageFormat, password, startPage, endPage, outputName, imageType,
-						resolution);
-
-		BufferedImage myPicture = ImageIO.read(new File("test1.jpg"));
-		//		Image cropedImage = cropImage(myPicture, new Rectangle(240, 320)); works
-		Image cropedImage =
-				getScaledImage(myPicture, new Rectangle(PREVIEW_WIDTH, (int) (PREVIEW_WIDTH * ASPECT_RATIO)));
-		ImagePanel picLabel = new ImagePanel(cropedImage);
-
-		pdfDocument.close();
-
-		return picLabel;
-	}
-
 	public Image getPDFPageImage(int pageNumber) throws IOException
 	{
-		logger.info("Opening file: '" + pdfFile.getName() + "'");
 		PDDocument pdfDocument = PDDocument.load(pdfFile);
-		logger.info("Found PDF with pages count: " + pdfDocument.getNumberOfPages());
-
-		PDFImageWriter imageWriter = new PDFImageWriter();
-		String imageFormat = "jpg";
-		String password = "";
-		int imageType = BufferedImage.TYPE_INT_RGB;
-		int resolution = 96;
-
-		String tempImageName = "tempImage";
-		String postfix = String.valueOf(pageNumber);
-		String outputName = tempImageName.concat(postfix);
-		boolean result =
-				imageWriter.writeImage(pdfDocument, imageFormat, password, pageNumber, pageNumber, tempImageName,
-						imageType, resolution);
-
-		BufferedImage pagePicture = ImageIO.read(new File(outputName.concat(".").concat(imageFormat)));
-		Image cropedImage =
-				getScaledImage(pagePicture, new Rectangle(PREVIEW_WIDTH, (int) (PREVIEW_WIDTH * ASPECT_RATIO)));
+		@SuppressWarnings("unchecked")
+		List<PDPage>pages =  pdfDocument.getDocumentCatalog().getAllPages();
+		PDPage page = pages.get(pageNumber - 1);
+		Rectangle cropSize = new Rectangle(PREVIEW_WIDTH, (int) (PREVIEW_WIDTH * ASPECT_RATIO));
+		Image image = getScaledImage(page.convertToImage(), cropSize);
 		pdfDocument.close();
-		return cropedImage;
+		return image;
 	}
 
 	private Image getScaledImage(BufferedImage src, Rectangle rect)

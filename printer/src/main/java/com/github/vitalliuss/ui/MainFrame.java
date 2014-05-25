@@ -18,22 +18,27 @@ import javax.swing.border.EmptyBorder;
 import org.apache.log4j.Logger;
 
 import com.github.vitalliuss.accounting.PaperFormat;
-import com.github.vitalliuss.accounting.Price;
 import com.github.vitalliuss.accounting.PriceCalculator;
 import com.github.vitalliuss.io.FileChooser;
+import com.github.vitalliuss.io.Printer;
 
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.print.PrinterException;
 
 public class MainFrame extends JFrame
 {
 	private static final Logger logger = Logger.getLogger(MainFrame.class);
 	private static File file;
 
+	private boolean showWindowButtons = false;
 	private int currentPageNumber = -1;
 	private int totalPagesInPDFFile = 0;
 	private int pagesToPrintCount = 0;
 	private int totalPrice = 0;
+	private int printStartPage = 0;
+	private int printEndPage = 0;
+	private PaperFormat printPaperFormat = PaperFormat.A4;
 
 	public static File getFile()
 	{
@@ -105,11 +110,12 @@ public class MainFrame extends JFrame
 	{
 		setTitle("Printer");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setUndecorated(showWindowButtons);
 		setBounds(100, 100, 1280, 1024);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
-		btnBrowseFiles.setBounds(10, 11, 112, 23);
+		btnBrowseFiles.setBounds(10, 11, 124, 23);
 		btnBrowseFiles.addMouseListener(new MouseAdapter()
 		{
 			@Override
@@ -117,6 +123,7 @@ public class MainFrame extends JFrame
 			{
 				FileChooser fc = new FileChooser();
 				File file = fc.openFile(btnBrowseFiles);
+				setFile(file);
 				String filePath = file.getAbsolutePath();
 				totalPagesInPDFFile = PDFDocument.getPDFDocumentPagesCount(file);
 				lblFileName.setText(filePath);
@@ -152,10 +159,23 @@ public class MainFrame extends JFrame
 		rdbtnA3.setBounds(69, 348, 53, 23);
 
 		contentPane.add(rdbtnA3);
-		btnPrint.setBounds(10, 547, 112, 23);
+		btnPrint.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent arg0) {
+				Printer printer = new Printer(getFile());
+				try {
+					printer.print(printPaperFormat, printStartPage, printEndPage);
+				} catch (PrinterException e) {
+					logger.error("Printer error, can't print file: " + e.getMessage());
+				} catch (IOException e) {
+					logger.error("I/O error, can't print file: " + e.getMessage());
+				}
+			}
+		});
+		btnPrint.setBounds(10, 547, 124, 23);
 
 		contentPane.add(btnPrint);
-		picture1.setBounds(146, 58, 540, 876);
+		picture1.setBounds(169, 58, 540, 876);
 
 		contentPane.add(picture1);
 		picture2.setBounds(714, 58, 540, 876);
@@ -208,7 +228,7 @@ public class MainFrame extends JFrame
 		contentPane.add(buttonNextPage);
 		
 		comboBoxStartPage.setToolTipText("Start page");
-		comboBoxStartPage.setBounds(10, 158, 112, 20);
+		comboBoxStartPage.setBounds(10, 158, 124, 20);
 		contentPane.add(comboBoxStartPage);
 		comboBoxStartPage.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
@@ -224,7 +244,7 @@ public class MainFrame extends JFrame
 
 		contentPane.add(lblPrintToPage);
 		comboBoxEndPage.setToolTipText("Last page");
-		comboBoxEndPage.setBounds(10, 222, 112, 20);
+		comboBoxEndPage.setBounds(10, 222, 124, 20);
 		contentPane.add(comboBoxEndPage);
 		comboBoxEndPage.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
@@ -233,22 +253,22 @@ public class MainFrame extends JFrame
 		});
 
 		
-		lblTotalHint.setBounds(10, 442, 46, 14);
+		lblTotalHint.setBounds(10, 442, 68, 14);
 
 		contentPane.add(lblTotalHint);
-		labelTotalAmount.setBounds(76, 442, 46, 14);
+		labelTotalAmount.setBounds(88, 442, 46, 14);
 
 		contentPane.add(labelTotalAmount);
-		lblInsertedHint.setBounds(10, 467, 46, 14);
+		lblInsertedHint.setBounds(10, 467, 68, 14);
 
 		contentPane.add(lblInsertedHint);
-		labelInsertedAmount.setBounds(76, 467, 46, 14);
+		labelInsertedAmount.setBounds(88, 467, 46, 14);
 
 		contentPane.add(labelInsertedAmount);
-		lblLeftHint.setBounds(10, 492, 46, 14);
+		lblLeftHint.setBounds(10, 492, 68, 14);
 
 		contentPane.add(lblLeftHint);
-		labelLeftAmount.setBounds(76, 492, 46, 14);
+		labelLeftAmount.setBounds(88, 492, 46, 14);
 
 		contentPane.add(labelLeftAmount);
 		lblFileName.setBounds(146, 15, 339, 14);
@@ -275,10 +295,14 @@ public class MainFrame extends JFrame
 		if (firstPageNumber <= lastPageNumber)
 		{
 			difference = lastPageNumber - firstPageNumber + 1;
+			printStartPage = firstPageNumber;
+			printEndPage = lastPageNumber;
 		}
 		else
 		{
 			difference = firstPageNumber - lastPageNumber + 1;
+			printStartPage = lastPageNumber;
+			printEndPage = firstPageNumber;
 		}
 		
 		pagesToPrintCount = difference;
